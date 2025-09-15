@@ -322,24 +322,68 @@ def evaluate_models(X_train, y_train, X_test, y_test, models: dict, params: dict
         raise CustomException(e, sys)
 ```
 
----
+Flask App Integration (app.py)
 
-## Model Training (`src/components/model_trainer.py`)
+Create a simple Flask web app to serve the model. This app will have a homepage and a form to input data and display predictions.
 
-(Full block already shown earlier, omitted here for brevity.)
+from flask import Flask, request, render_template
+import logging
+from src.components.prediction_pipeline import PredictPipeline, CustomData
 
----
+app = Flask(__name__)
 
-## Prediction Pipeline (`src/pipeline/prediction_pipeline.py`)
+@app.route('/')
+def home():
+    """
+    Render the home page (index.html) with a button or link to start prediction.
+    """
+    return render_template('index.html')
 
-(Full block already shown earlier, omitted here for brevity.)
+@app.route('/predict_datapoint', methods=['GET', 'POST'])
+def predict_datapoint():
+    """
+    GET: Render the input form (predict_datapoint.html).
+    POST: Collect form data, make prediction, and display the result.
+    """
+    if request.method == 'GET':
+        return render_template('predict_datapoint.html')
+    else:
+        # Collect input values from the form
+        data = CustomData(
+            MedInc=float(request.form.get('MedInc')),
+            HouseAge=float(request.form.get('HouseAge')),
+            AveRooms=float(request.form.get('AveRooms')),
+            AveBedrms=float(request.form.get('AveBedrms')),
+            Population=float(request.form.get('Population')),
+            AveOccup=float(request.form.get('AveOccup'))
+        )
+        # Convert inputs to DataFrame and make prediction
+        input_df = data.get_data_as_dataframe()
+        logging.info(f"Input data for prediction: {input_df.to_dict(orient='records')}")
+        predict_pipeline = PredictPipeline()
+        prediction = predict_pipeline.predict(input_df)
 
----
+        # Render the result page (result.html) with the prediction
+        return render_template('result.html', prediction=prediction[0])
 
-## Flask App Integration (`app.py`)
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
-(Full block already shown earlier, omitted here for brevity.)
 
----
+Routes:
 
-# End of Guide
+/ – Home page (index.html). Provide navigation or info about the app.
+
+/predict_datapoint – Handles both showing the form (GET) and processing submissions (POST). The HTML form (predict_datapoint.html) should have input fields named MedInc, HouseAge, etc., matching request.form.get(...) keys.
+
+Templates: You need corresponding HTML files in src/templates/:
+
+index.html – A simple welcome page with a link/button to the prediction form.
+
+predict_datapoint.html – A form where users enter feature values. The form’s action should point to /predict_datapoint and method="post".
+
+result.html – Displays the prediction result (passed as prediction context variable).
+
+Logging: We log input data for debugging.
+
+With the Flask app running, you can navigate to http://localhost:5000/ to access the UI, enter values, and view predictions.
